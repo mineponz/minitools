@@ -1,0 +1,122 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+/**
+ * ツール一覧。ツールを追加したらここに1行足す。
+ * status: 'ready' は公開済み、'planned' は予定（リンクしない）。
+ */
+const tools = [
+  {
+    href: '/tools/cron/',
+    name: 'cron式チェッカー',
+    summary: 'cron式を日本語に翻訳し、次の実行時刻を一覧表示する。日付と曜日のOR条件にも対応。',
+    status: 'ready' as const,
+  },
+  {
+    name: 'Unixタイムスタンプ変換',
+    summary: '秒・ミリ秒・ISO 8601・各タイムゾーンを相互に変換する。',
+    status: 'planned' as const,
+  },
+  {
+    name: 'cron → GitHub Actions 変換',
+    summary: 'ローカル時刻で書いたcron式をUTCに直して、Actions用のYAMLを出力する。',
+    status: 'planned' as const,
+  },
+];
+
+const ready = tools.filter((t) => t.status === 'ready');
+const planned = tools.filter((t) => t.status === 'planned');
+---
+
+<BaseLayout>
+  <h1>エンジニア向けミニツール集</h1>
+  <p class="lead">
+    「毎回ググって、毎回同じことを確かめている」種類の作業を1つずつ道具にしています。
+    すべてブラウザ内で完結するので、入力した内容がどこかへ送られることはありません。
+  </p>
+
+  <h2>公開中</h2>
+  <ul class="tools">
+    {ready.map((tool) => (
+      <li>
+        <a href={tool.href}>
+          <span class="name">{tool.name}</span>
+          <span class="summary">{tool.summary}</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+
+  {planned.length > 0 && (
+    <>
+      <h2>作る予定</h2>
+      <ul class="tools planned">
+        {planned.map((tool) => (
+          <li>
+            <span class="name">{tool.name}</span>
+            <span class="summary">{tool.summary}</span>
+          </li>
+        ))}
+      </ul>
+    </>
+  )}
+
+  <style>
+    .lead {
+      color: var(--muted);
+      margin-top: 0;
+    }
+
+    .tools {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .tools li {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 0.6rem;
+      background: var(--surface);
+    }
+
+    .tools a,
+    .tools li > .name {
+      display: block;
+      padding: 0.9rem 1rem;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .tools a:hover {
+      border-color: var(--accent);
+    }
+
+    .name {
+      display: block;
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .tools a:hover .name {
+      text-decoration: underline;
+    }
+
+    .summary {
+      display: block;
+      font-size: 0.875rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .planned li {
+      background: transparent;
+      border-style: dashed;
+      padding: 0.9rem 1rem;
+    }
+    .planned .name {
+      color: var(--muted);
+      font-weight: 600;
+    }
+  </style>
+</BaseLayout>

@@ -1,0 +1,296 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const title = 'cron式チェッカー';
+const description =
+  'cron式を日本語の説明文に変換し、次に実行される時刻を一覧表示します。日付と曜日を両方指定したときのOR条件も正しく計算します。ブラウザ内で動作。';
+
+const examples = [
+  { expr: '*/15 * * * *', label: '15分ごと' },
+  { expr: '0 9 * * 1-5', label: '平日の朝9時' },
+  { expr: '30 3 1 * *', label: '毎月1日の3:30' },
+  { expr: '0 0 1 * 1', label: '1日 または 月曜（OR条件の例）' },
+  { expr: '0 */6 * * *', label: '6時間ごと' },
+];
+---
+
+<BaseLayout title={title} description={description} breadcrumb={[]}>
+  <h1>cron式チェッカー</h1>
+  <p class="lead">
+    cron式が「いつ動くのか」を日本語と実際の日時で確かめます。
+    書いた式が思ったとおりか、デプロイ前に確認するためのものです。
+  </p>
+
+  <div class="tool">
+    <label class="field">
+      <span class="field-label">cron式（分 時 日 月 曜日）</span>
+      <input
+        id="expr"
+        type="text"
+        value="*/15 * * * *"
+        spellcheck="false"
+        autocapitalize="off"
+        autocomplete="off"
+        aria-describedby="expr-help"
+      />
+    </label>
+    <p id="expr-help" class="field-help">
+      スペース区切りの5フィールド。<code>*</code> <code>*/5</code> <code>1-5</code>
+      <code>1,3,5</code> と月・曜日の英語略称（<code>JAN</code> <code>MON</code>）に対応します。
+    </p>
+
+    <div class="examples">
+      <span class="examples-label">例:</span>
+      {examples.map((e) => (
+        <button type="button" class="example" data-expr={e.expr} title={e.label}>
+          <code>{e.expr}</code>
+        </button>
+      ))}
+    </div>
+
+    <output id="result" class="result" aria-live="polite"></output>
+  </div>
+
+  <h2>日付と曜日を両方書くとどうなるか</h2>
+  <p>
+    標準的なcronでは、日（3番目）と曜日（5番目）の<strong>両方</strong>を
+    <code>*</code> 以外にした場合、条件は <strong>AND ではなく OR</strong> になります。
+    つまり <code>0 0 1 * 1</code> は「毎月1日」<em>および</em>「毎週月曜」の両方で実行されます。
+    「1日が月曜のときだけ」という意味にはなりません。
+  </p>
+  <p>
+    片方だけを指定した場合は、指定していない方は条件から外れます。
+    直感に反するうえに簡易ツールが間違えやすい箇所なので、このツールでは説明文にOR条件であることを明示しています。
+  </p>
+
+  <h2>対応していない書き方</h2>
+  <p>
+    <code>L</code>（月末）<code>W</code>（平日）<code>#</code>（第n曜日）<code>?</code>
+    や秒フィールド、<code>@daily</code> などのエイリアスは、実装系（Vixie cron / Quartz / GitHub Actions など）
+    によって意味が変わるため扱いません。入力された場合はエラーとして表示します。
+  </p>
+
+  <h2>GitHub Actions で使うときの注意</h2>
+  <p>
+    GitHub Actions の <code>schedule</code> は <strong>UTC</strong> で解釈されます。
+    このツールはお使いの端末のタイムゾーンで計算するので、Actions に設定する際は時差の分を足し引きしてください。
+    また Actions の cron は指定時刻ちょうどの実行が保証されず、数十分遅れることがあります。
+  </p>
+
+  <style>
+    .lead {
+      color: var(--muted);
+      margin-top: 0;
+    }
+
+    .tool {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-block: 1.5rem;
+    }
+
+    .field { display: block; }
+    .field-label {
+      display: block;
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    #expr {
+      width: 100%;
+      font-family: var(--mono);
+      font-size: 1.1rem;
+      padding: 0.6rem 0.7rem;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+    }
+    #expr:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: var(--accent);
+    }
+
+    .field-help {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin: 0.4rem 0 0;
+    }
+
+    .examples {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 0.9rem;
+    }
+    .examples-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .example {
+      font: inherit;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.15rem 0.6rem;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .example:hover {
+      border-color: var(--accent);
+      background: var(--accent-weak);
+    }
+    .example code {
+      background: none;
+      padding: 0;
+      font-size: 0.8rem;
+    }
+
+    .result { display: block; margin-top: 1.25rem; }
+
+    .summary {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 0 0 0.75rem;
+    }
+
+    .error {
+      color: var(--danger);
+      font-weight: 600;
+      margin: 0;
+    }
+    .error-hint {
+      color: var(--muted);
+      font-size: 0.8125rem;
+      margin: 0.3rem 0 0;
+      font-weight: 400;
+    }
+
+    .runs {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      border-top: 1px solid var(--border);
+    }
+    .runs li {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.4rem 0;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--mono);
+      font-size: 0.875rem;
+    }
+    .runs .relative {
+      color: var(--muted);
+      font-family: var(--sans);
+      white-space: nowrap;
+    }
+
+    .runs-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin: 0 0 0.3rem;
+    }
+  </style>
+
+  <script>
+    import { parseCron, nextRuns, describeCron, CronParseError } from '../../lib/cron';
+
+    const input = document.getElementById('expr') as HTMLInputElement;
+    const result = document.getElementById('result') as HTMLElement;
+
+    const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+
+    function formatAbsolute(d: Date): string {
+      const p = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}(${WEEKDAYS[d.getDay()]}) ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+
+    function formatRelative(d: Date, now: Date): string {
+      const minutes = Math.round((d.getTime() - now.getTime()) / 60000);
+      if (minutes < 60) return `約${minutes}分後`;
+      const hours = Math.round(minutes / 60);
+      if (hours < 24) return `約${hours}時間後`;
+      const days = Math.round(hours / 24);
+      if (days < 31) return `約${days}日後`;
+      return `約${Math.round(days / 30)}か月後`;
+    }
+
+    function render() {
+      const expression = input.value;
+
+      let parsed;
+      try {
+        parsed = parseCron(expression);
+      } catch (err) {
+        const message = err instanceof CronParseError ? err.message : '解釈できない式です';
+        result.innerHTML = '';
+        const p = document.createElement('p');
+        p.className = 'error';
+        p.textContent = message;
+        result.append(p);
+        return;
+      }
+
+      const now = new Date();
+      const runs = nextRuns(parsed, now, 5);
+
+      result.innerHTML = '';
+
+      const summary = document.createElement('p');
+      summary.className = 'summary';
+      summary.textContent = describeCron(parsed);
+      result.append(summary);
+
+      if (runs.length === 0) {
+        const p = document.createElement('p');
+        p.className = 'error';
+        p.textContent = '今後4年以内に実行される時刻がありません';
+        const hint = document.createElement('p');
+        hint.className = 'error-hint';
+        hint.textContent =
+          '存在しない日付（例: 2月30日）や、日付と月の組み合わせが成立しない指定になっていないか確認してください。';
+        result.append(p, hint);
+        return;
+      }
+
+      const label = document.createElement('p');
+      label.className = 'runs-label';
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      label.textContent = `次の実行時刻（タイムゾーン: ${tz}）`;
+
+      const list = document.createElement('ul');
+      list.className = 'runs';
+      for (const run of runs) {
+        const li = document.createElement('li');
+        const abs = document.createElement('span');
+        abs.textContent = formatAbsolute(run);
+        const rel = document.createElement('span');
+        rel.className = 'relative';
+        rel.textContent = formatRelative(run, now);
+        li.append(abs, rel);
+        list.append(li);
+      }
+
+      result.append(label, list);
+    }
+
+    input.addEventListener('input', render);
+
+    for (const button of document.querySelectorAll<HTMLButtonElement>('.example')) {
+      button.addEventListener('click', () => {
+        input.value = button.dataset.expr ?? '';
+        render();
+        input.focus();
+      });
+    }
+
+    render();
+  </script>
+</BaseLayout>
