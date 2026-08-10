@@ -27,8 +27,23 @@ npm run build    # dist/ に静的出力
 1. `src/lib/<tool>.ts` にロジックを書く（DOM に触れない純粋な関数として）
 2. `src/lib/<tool>.test.ts` にテストを書き、`npm test` を通す
 3. `src/pages/tools/<tool>.astro` にUIを書き、`<script>` から `src/lib/` を import する
-4. `src/pages/index.astro` の `tools` 配列に1行足す（`status: 'ready'`）
-5. `npm run build` が通ることを確認する
+4. `src/pages/index.astro` の `tools` 配列に1行足す（`status: 'ready'`、`audience: 'engineer' | 'general'`）
+5. `npm run check`（型チェック＋テスト）と `npm run build` が通ることを確認する
+
+## サブエージェントに実装を委譲する場合
+
+複数ツールを並行実装させる際は、各サブエージェントに担当ファイルを明確に分けて渡し、
+以下は必ず伝える:
+- `src/pages/index.astro` は編集しない（統合時に衝突するため、まとめる担当が最後に1回だけ触る）
+- `npm run build` は実行しない（並行実行すると `dist/` の書き込みが競合する）。動作確認は
+  対象の `node --test src/lib/<tool>.test.ts` のみで行う
+- git commit / push はしない（統合担当がまとめて行う）
+
+過去に5体を並行実行したところ、"Connection closed mid-response" というインフラ起因の
+接続エラーで複数体が失敗した実績がある（実装のバグではない）。一度失敗したエージェントは
+`SendMessage` で resume できるが、同じ理由で2回続けて失敗する場合は、無理に再試行を重ねず
+リーダー（またはあなた）が直接実装を引き継いだほうが速い。特に「1時間動いていて
+1つもファイルが生成されていない」ようなケースはスタックしている可能性が高い。
 
 ## 注意点（実際に踏んだもの）
 

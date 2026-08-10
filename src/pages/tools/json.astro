@@ -1,0 +1,227 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const title = 'JSON整形・検証ツール';
+const description =
+  'JSONを整形・ミニファイし、構文エラーを行番号つきで表示します。重複キーも検出します。入力内容はどこにも送信されません。';
+---
+
+<BaseLayout title={title} description={description} breadcrumb={[]}>
+  <h1>JSON整形・検証ツール</h1>
+  <p class="lead">
+    崩れたJSONを整形したり、構文エラーの場所を特定したりします。
+    オンライン変換系のツールとは違い、入力内容をサーバーへ送信せずブラウザの中だけで処理します。
+  </p>
+
+  <div class="tool">
+    <label class="field">
+      <span class="field-label">入力</span>
+      <textarea id="input" rows="12" spellcheck="false" placeholder={'{"example": [1, 2, 3]}'}></textarea>
+    </label>
+
+    <div class="controls">
+      <label class="indent-label">
+        インデント:
+        <select id="indent">
+          <option value="2">スペース2</option>
+          <option value="4">スペース4</option>
+          <option value="tab">タブ</option>
+        </select>
+      </label>
+      <button type="button" id="format-btn" class="btn primary">整形</button>
+      <button type="button" id="minify-btn" class="btn">ミニファイ</button>
+      <button type="button" id="copy-btn" class="btn">結果をコピー</button>
+    </div>
+
+    <p id="status" class="status" aria-live="polite"></p>
+    <p id="copy-status" class="copy-status" role="status"></p>
+
+    <label class="field">
+      <span class="field-label">結果</span>
+      <textarea id="output" rows="12" spellcheck="false" readonly></textarea>
+    </label>
+  </div>
+
+  <h2>重複キーについて</h2>
+  <p>
+    <code>{'{"a":1,"a":2}'}</code> のように同じキーが複数回出てくるJSONは、構文としては不正ではありません。
+    ただし多くの場合、後から書いた方の値で上書きされてしまい、意図しない結果になりがちです。
+    このツールでは重複キーを見つけた場合、エラーとは別に警告として表示します。
+  </p>
+
+  <h2>対応していないもの</h2>
+  <p>
+    コメントを書けるJSON5やJSONCには対応していません。標準のJSON（<a href="https://www.rfc-editor.org/rfc/rfc8259">RFC 8259</a>）のみを扱います。
+    また、整形・ミニファイの結果は値を一度パースしてから再構築するため、数値の表記（例: <code>1.0</code> が <code>1</code> になる、<code>1e10</code> の表記が変わる場合がある）が入力とわずかに変わることがあります。
+  </p>
+
+  <style>
+    .lead { color: var(--muted); margin-top: 0; }
+
+    .tool {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-block: 1.5rem;
+    }
+
+    .field { display: block; margin-bottom: 0.9rem; }
+    .field-label {
+      display: block;
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    textarea {
+      width: 100%;
+      font-family: var(--mono);
+      font-size: 0.875rem;
+      line-height: 1.55;
+      padding: 0.7rem 0.8rem;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      resize: vertical;
+    }
+    textarea:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: var(--accent);
+    }
+    textarea[readonly] { background: var(--accent-weak); }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .indent-label {
+      font-size: 0.8125rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .indent-label select {
+      font: inherit;
+      padding: 0.3rem 0.4rem;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .btn {
+      font: inherit;
+      font-size: 0.875rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.45rem 0.85rem;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--surface);
+      font-weight: 600;
+    }
+    .btn.primary:hover { opacity: 0.9; color: var(--surface); }
+
+    .status {
+      min-height: 1.4em;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin: 0 0 0.9rem;
+    }
+    .status.ok { color: var(--accent); }
+    .status.error { color: var(--danger); }
+    .status.warn { color: #c98a2c; }
+
+    .copy-status {
+      min-height: 1.2em;
+      font-size: 0.8125rem;
+      color: var(--accent);
+      margin: -0.5rem 0 0.9rem;
+    }
+  </style>
+
+  <script>
+    import { formatJson, minifyJson, validateJson, JsonSyntaxError } from '../../lib/json-format';
+
+    const input = document.getElementById('input') as HTMLTextAreaElement;
+    const output = document.getElementById('output') as HTMLTextAreaElement;
+    const indentSelect = document.getElementById('indent') as HTMLSelectElement;
+    const formatBtn = document.getElementById('format-btn') as HTMLButtonElement;
+    const minifyBtn = document.getElementById('minify-btn') as HTMLButtonElement;
+    const copyBtn = document.getElementById('copy-btn') as HTMLButtonElement;
+    const statusEl = document.getElementById('status') as HTMLElement;
+    const copyStatus = document.getElementById('copy-status') as HTMLElement;
+
+    function resolvedIndent(): number | string {
+      return indentSelect.value === 'tab' ? '\t' : Number(indentSelect.value);
+    }
+
+    function setStatus(text: string, kind: 'ok' | 'error' | 'warn' | '') {
+      statusEl.textContent = text;
+      statusEl.className = `status ${kind}`;
+    }
+
+    function reportDuplicates() {
+      const result = validateJson(input.value);
+      if (result.valid && result.duplicates.length > 0) {
+        const keys = result.duplicates.map((d) => `"${d.key}"（${d.position.line}行目）`).join('、');
+        setStatus(`⚠ 整形しました。ただし重複キーがあります: ${keys}`, 'warn');
+        return true;
+      }
+      return false;
+    }
+
+    function doFormat() {
+      copyStatus.textContent = '';
+      try {
+        output.value = formatJson(input.value, resolvedIndent());
+        if (!reportDuplicates()) setStatus('✓ 有効なJSONです', 'ok');
+      } catch (err) {
+        output.value = '';
+        setStatus(err instanceof JsonSyntaxError ? err.message : '整形できませんでした', 'error');
+      }
+    }
+
+    function doMinify() {
+      copyStatus.textContent = '';
+      try {
+        output.value = minifyJson(input.value);
+        if (!reportDuplicates()) setStatus('✓ 有効なJSONです', 'ok');
+      } catch (err) {
+        output.value = '';
+        setStatus(err instanceof JsonSyntaxError ? err.message : 'ミニファイできませんでした', 'error');
+      }
+    }
+
+    formatBtn.addEventListener('click', doFormat);
+    minifyBtn.addEventListener('click', doMinify);
+
+    copyBtn.addEventListener('click', async () => {
+      if (!output.value) return;
+      try {
+        await navigator.clipboard.writeText(output.value);
+        copyStatus.textContent = 'コピーしました';
+      } catch {
+        copyStatus.textContent = 'コピーできませんでした。手動で選択してコピーしてください。';
+      }
+    });
+
+    // サンプルを最初から入れておき、初回表示ですぐ試せるようにする
+    input.value = '{\n  "name": "minitools",\n  "tools": ["cron", "json", "password"],\n  "active": true\n}';
+    doFormat();
+  </script>
+</BaseLayout>

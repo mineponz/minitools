@@ -8,4 +8,4 @@
 export const SITE_URL = 'https://minitools.mineponz.workers.dev';
 export const SITE_TITLE = 'minitools';
 export const SITE_DESCRIPTION =
-  'エンジニアの手元の作業を1つずつ片付ける、小さなツール集。すべてブラウザ内で動作し、入力内容をサーバーへ送信しません。';
+  'エンジニアの手元の作業から日常のちょっとした計算まで片付ける、小さなツール集。すべてブラウザ内で動作し、入力内容をサーバーへ送信しません。';

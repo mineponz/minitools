@@ -1,0 +1,277 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const title = 'Unixタイムスタンプ変換';
+const description =
+  'Unixタイムスタンプ（秒・ミリ秒）と日時を相互変換します。秒とミリ秒の自動判定つき。UTC・ローカル時刻・ISO 8601・相対時刻を同時に表示。ブラウザ内で動作。';
+---
+
+<BaseLayout title={title} description={description} breadcrumb={[]}>
+  <h1>Unixタイムスタンプ変換</h1>
+  <p class="lead">
+    タイムスタンプが「秒」なのか「ミリ秒」なのか分からなくなったとき、あるいは日時から
+    タイムスタンプを作りたいときに使います。両方向の変換に対応しています。
+  </p>
+
+  <div class="tool">
+    <section class="panel">
+      <h3 class="panel-title">タイムスタンプ → 日時</h3>
+      <label class="field">
+        <span class="field-label">タイムスタンプ</span>
+        <div class="input-row">
+          <input id="ts-input" type="text" inputmode="numeric" placeholder="1700000000" spellcheck="false" />
+          <button type="button" id="ts-now" class="now-btn">今</button>
+        </div>
+      </label>
+      <div class="unit-radios">
+        <label class="radio"><input type="radio" name="unit" value="auto" checked /> 自動判定</label>
+        <label class="radio"><input type="radio" name="unit" value="seconds" /> 秒</label>
+        <label class="radio"><input type="radio" name="unit" value="milliseconds" /> ミリ秒</label>
+      </div>
+
+      <div id="ts-result" class="result-box" hidden>
+        <p class="unit-badge" id="ts-unit-badge"></p>
+        <dl class="result-list">
+          <div><dt>UTC</dt><dd id="ts-utc"></dd></div>
+          <div><dt>ローカル時刻</dt><dd id="ts-local"></dd></div>
+          <div><dt>ISO 8601</dt><dd id="ts-iso"></dd></div>
+          <div><dt>相対時刻</dt><dd id="ts-relative"></dd></div>
+        </dl>
+      </div>
+      <p id="ts-error" class="error" hidden></p>
+    </section>
+
+    <section class="panel">
+      <h3 class="panel-title">日時 → タイムスタンプ</h3>
+      <label class="field">
+        <span class="field-label">日時（ISO 8601など。例: 2026-01-01T00:00:00Z）</span>
+        <div class="input-row">
+          <input id="dt-input" type="text" placeholder="2026-01-01T00:00:00Z" spellcheck="false" />
+          <button type="button" id="dt-now" class="now-btn">今</button>
+        </div>
+      </label>
+
+      <div id="dt-result" class="result-box" hidden>
+        <dl class="result-list">
+          <div><dt>秒</dt><dd id="dt-seconds"></dd></div>
+          <div><dt>ミリ秒</dt><dd id="dt-ms"></dd></div>
+        </dl>
+      </div>
+      <p id="dt-error" class="error" hidden></p>
+    </section>
+  </div>
+
+  <h2>秒とミリ秒の自動判定について</h2>
+  <p>
+    このツールは入力された数値の大きさから、秒表記かミリ秒表記かを推測します
+    （目安: 13桁前後ならミリ秒、10桁前後なら秒）。ただし、これは推測に過ぎません。
+    1970年に近い日時を秒表記で扱う場合など、値が小さくなるケースでは誤判定することがあるため、
+    確実に判定したい場合は上のラジオボタンで単位を明示してください。
+  </p>
+
+  <h2>対応していない・注意が必要な点</h2>
+  <ul>
+    <li>うるう秒は考慮していません（Unixタイムスタンプの仕様上、通常はうるう秒を無視して計算します）。</li>
+    <li>「ローカル時刻」はこのページを開いているブラウザのタイムゾーン設定に依存します。別のタイムゾーンの端末で開くと表示が変わります。</li>
+    <li>JavaScriptの<code>Date</code>が扱える範囲（西暦約275,760年まで、紀元前約271,821年から）を超える値はエラーになります。</li>
+  </ul>
+
+  <style>
+    .lead { color: var(--muted); margin-top: 0; }
+
+    .tool {
+      display: grid;
+      gap: 1rem;
+      margin-block: 1.5rem;
+    }
+    @media (min-width: 640px) {
+      .tool { grid-template-columns: 1fr 1fr; }
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.1rem;
+    }
+    .panel-title {
+      margin: 0 0 0.9rem;
+      font-size: 0.9375rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .field { display: block; margin-bottom: 0.7rem; }
+    .field-label {
+      display: block;
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .input-row { display: flex; gap: 0.4rem; }
+    .input-row input {
+      flex: 1;
+      min-width: 0;
+      font-family: var(--mono);
+      font-size: 1rem;
+      padding: 0.55rem 0.65rem;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+    }
+    .input-row input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: var(--accent);
+    }
+
+    .now-btn {
+      font: inherit;
+      font-size: 0.875rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 0.5rem 0.7rem;
+      cursor: pointer;
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .now-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .unit-radios {
+      display: flex;
+      gap: 0.9rem;
+      margin-bottom: 0.9rem;
+      font-size: 0.8125rem;
+    }
+    .radio { display: flex; align-items: center; gap: 0.3rem; }
+    .radio input { accent-color: var(--accent); }
+
+    .result-box {
+      border-top: 1px solid var(--border);
+      padding-top: 0.8rem;
+    }
+
+    .unit-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      color: var(--accent);
+      background: var(--accent-weak);
+      border-radius: 999px;
+      padding: 0.15rem 0.6rem;
+      margin: 0 0 0.6rem;
+    }
+
+    .result-list { margin: 0; }
+    .result-list > div {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.6rem;
+      padding: 0.3rem 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .result-list > div:last-child { border-bottom: none; }
+    .result-list dt { color: var(--muted); font-size: 0.8125rem; }
+    .result-list dd {
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 0.875rem;
+      text-align: right;
+    }
+
+    .error {
+      color: var(--danger);
+      font-weight: 600;
+      margin: 0.6rem 0 0;
+      font-size: 0.875rem;
+    }
+  </style>
+
+  <script>
+    import { parseTimestamp, parseDateTime, now, TimestampParseError, type TimestampUnit } from '../../lib/timestamp';
+
+    const tsInput = document.getElementById('ts-input') as HTMLInputElement;
+    const tsNowBtn = document.getElementById('ts-now') as HTMLButtonElement;
+    const tsResult = document.getElementById('ts-result') as HTMLElement;
+    const tsError = document.getElementById('ts-error') as HTMLElement;
+    const tsUnitBadge = document.getElementById('ts-unit-badge') as HTMLElement;
+    const tsUtc = document.getElementById('ts-utc') as HTMLElement;
+    const tsLocal = document.getElementById('ts-local') as HTMLElement;
+    const tsIso = document.getElementById('ts-iso') as HTMLElement;
+    const tsRelative = document.getElementById('ts-relative') as HTMLElement;
+    const unitRadios = document.querySelectorAll<HTMLInputElement>('input[name="unit"]');
+
+    const dtInput = document.getElementById('dt-input') as HTMLInputElement;
+    const dtNowBtn = document.getElementById('dt-now') as HTMLButtonElement;
+    const dtResult = document.getElementById('dt-result') as HTMLElement;
+    const dtError = document.getElementById('dt-error') as HTMLElement;
+    const dtSeconds = document.getElementById('dt-seconds') as HTMLElement;
+    const dtMs = document.getElementById('dt-ms') as HTMLElement;
+
+    function selectedUnit(): TimestampUnit | undefined {
+      const checked = [...unitRadios].find((r) => r.checked)?.value;
+      return checked === 'seconds' || checked === 'milliseconds' ? checked : undefined;
+    }
+
+    function renderTimestamp() {
+      if (tsInput.value.trim() === '') {
+        tsResult.hidden = true;
+        tsError.hidden = true;
+        return;
+      }
+      try {
+        const result = parseTimestamp(tsInput.value, selectedUnit());
+        tsError.hidden = true;
+        tsResult.hidden = false;
+        tsUnitBadge.textContent = result.unit === 'seconds' ? '秒として解釈' : 'ミリ秒として解釈';
+        tsUtc.textContent = result.utc;
+        tsLocal.textContent = result.local;
+        tsIso.textContent = result.iso8601;
+        tsRelative.textContent = result.relative;
+      } catch (err) {
+        tsResult.hidden = true;
+        tsError.hidden = false;
+        tsError.textContent = err instanceof TimestampParseError ? err.message : '変換できませんでした';
+      }
+    }
+
+    function renderDateTime() {
+      if (dtInput.value.trim() === '') {
+        dtResult.hidden = true;
+        dtError.hidden = true;
+        return;
+      }
+      try {
+        const result = parseDateTime(dtInput.value);
+        dtError.hidden = true;
+        dtResult.hidden = false;
+        dtSeconds.textContent = String(result.epochSeconds);
+        dtMs.textContent = String(result.epochMilliseconds);
+      } catch (err) {
+        dtResult.hidden = true;
+        dtError.hidden = false;
+        dtError.textContent = err instanceof TimestampParseError ? err.message : '変換できませんでした';
+      }
+    }
+
+    tsInput.addEventListener('input', renderTimestamp);
+    for (const r of unitRadios) r.addEventListener('change', renderTimestamp);
+    tsNowBtn.addEventListener('click', () => {
+      tsInput.value = String(Math.floor(now().epochSeconds));
+      (document.querySelector('input[name="unit"][value="auto"]') as HTMLInputElement).checked = true;
+      renderTimestamp();
+    });
+
+    dtInput.addEventListener('input', renderDateTime);
+    dtNowBtn.addEventListener('click', () => {
+      dtInput.value = new Date().toISOString();
+      renderDateTime();
+    });
+
+    // 初期表示: 現在時刻をセットしておく
+    tsInput.value = String(Math.floor(now().epochSeconds));
+    renderTimestamp();
+  </script>
+</BaseLayout>

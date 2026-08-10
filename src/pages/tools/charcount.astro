@@ -1,0 +1,297 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const title = '文字数・バイト数カウンター';
+const description =
+  '文字数を複数の数え方（文字コード単位・見た目の文字数・バイト数）で同時に確認できます。X（旧Twitter）やThreadsなどの文字数上限プリセット付き。入力内容は送信されません。';
+
+// 各サービスの文字数上限。仕様は変更されることがあるため「参考値」として案内する。
+const presets = [
+  { key: 'x', label: 'X（旧Twitter）', limit: 280 },
+  { key: 'threads', label: 'Threads', limit: 500 },
+  { key: 'note-title', label: 'noteの記事タイトル', limit: 100 },
+  { key: 'instagram', label: 'Instagramキャプション', limit: 2200 },
+] as const;
+---
+
+<BaseLayout title={title} description={description} breadcrumb={[]}>
+  <h1>文字数・バイト数カウンター</h1>
+  <p class="lead">
+    「文字数」は数え方が1つではありません。日本語や絵文字が混じると、
+    数え方によって結果が変わることがあります。ここでは複数の数え方を同時に表示します。
+  </p>
+
+  <div class="tool">
+    <label class="field">
+      <span class="field-label">テキストを入力</span>
+      <textarea
+        id="text"
+        rows="8"
+        placeholder="ここに文章を入力してください"
+        spellcheck="false"
+      ></textarea>
+    </label>
+
+    <div class="presets">
+      <span class="presets-label">文字数上限プリセット:</span>
+      {presets.map((p) => (
+        <button type="button" class="preset" data-limit={p.limit} data-label={p.label}>
+          {p.label}（{p.limit}文字）
+        </button>
+      ))}
+      <button type="button" class="preset preset-clear" data-limit="" data-label="">
+        なし
+      </button>
+    </div>
+
+    <div id="limit-result" class="limit-result" hidden>
+      <p id="limit-text" class="limit-text"></p>
+      <div class="limit-bar-track">
+        <div id="limit-bar" class="limit-bar-fill"></div>
+      </div>
+    </div>
+
+    <dl class="counts">
+      <div class="count-row">
+        <dt>
+          文字数（コード単位）
+          <span class="hint" title="JavaScriptの文字列.lengthと同じ数え方。絵文字などは2文字として数えられることがあります。">?</span>
+        </dt>
+        <dd id="count-utf16">0</dd>
+      </div>
+      <div class="count-row">
+        <dt>
+          文字数（コードポイント）
+          <span class="hint" title="絵文字を正しく1文字として数える方法。多くのSNSがこちらに近い数え方を採用しています。">?</span>
+        </dt>
+        <dd id="count-codepoints">0</dd>
+      </div>
+      <div class="count-row">
+        <dt>
+          見た目の文字数
+          <span class="hint" title="画面に見えている通りの文字数。家族の絵文字など複数の絵文字を組み合わせた記号も1文字として数えます。">?</span>
+        </dt>
+        <dd id="count-graphemes">0</dd>
+      </div>
+      <div class="count-row">
+        <dt>
+          バイト数（UTF-8）
+          <span class="hint" title="ファイルサイズなどの見積もりに使う数え方。日本語は1文字あたり3バイトになることが多いです。">?</span>
+        </dt>
+        <dd id="count-bytes">0</dd>
+      </div>
+      <div class="count-row">
+        <dt>単語数（参考）</dt>
+        <dd id="count-words">0</dd>
+      </div>
+    </dl>
+  </div>
+
+  <h2>なぜ数え方によって結果が変わるのか</h2>
+  <p>
+    日本語だけの文章では、多くの数え方が一致します。しかし絵文字が混じると話が変わります。
+    たとえば🎉のような絵文字は、プログラムの内部では「2文字分」として扱われることがあります。
+    見た目は1文字なのに、システムによっては2文字とカウントされてしまう——このズレが、
+    SNSに投稿しようとして「文字数オーバー」と言われて戸惑う原因になることがあります。
+  </p>
+  <p>
+    このツールでは「コード単位」「コードポイント」「見た目の文字数」の3つを並べて表示することで、
+    実際に投稿先のサービスでどう数えられそうかの見当をつけやすくしています。
+    ただし<strong>どのサービスがどの数え方を採用しているかは公開されていないことが多く</strong>、
+    ここに表示される数字はあくまで参考値です。
+  </p>
+
+  <h2>文字数上限について</h2>
+  <p>
+    プリセットの数値は変更されることがあります。投稿する前に、実際の投稿画面でも
+    文字数が収まっているか確認することをおすすめします。
+  </p>
+
+  <style>
+    .lead { color: var(--muted); margin-top: 0; }
+
+    .tool {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-block: 1.5rem;
+    }
+
+    .field { display: block; margin-bottom: 1rem; }
+    .field-label {
+      display: block;
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    textarea {
+      width: 100%;
+      font-family: var(--sans);
+      font-size: 1rem;
+      line-height: 1.6;
+      padding: 0.7rem 0.8rem;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      resize: vertical;
+    }
+    textarea:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: var(--accent);
+    }
+
+    .presets {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 1rem;
+    }
+    .presets-label { font-size: 0.75rem; color: var(--muted); }
+    .preset {
+      font: inherit;
+      font-size: 0.8125rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.3rem 0.7rem;
+      cursor: pointer;
+      color: var(--text);
+    }
+    .preset:hover { border-color: var(--accent); background: var(--accent-weak); }
+    .preset[aria-pressed="true"] {
+      border-color: var(--accent);
+      background: var(--accent-weak);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .limit-result { margin-bottom: 1.25rem; }
+    .limit-text { font-weight: 600; margin: 0 0 0.4rem; }
+    .limit-text.over { color: var(--danger); }
+    .limit-bar-track {
+      height: 6px;
+      border-radius: 999px;
+      background: var(--border);
+      overflow: hidden;
+    }
+    .limit-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.15s ease, background 0.15s ease;
+    }
+    .limit-bar-fill.over { background: var(--danger); }
+
+    .counts {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.5rem 1rem;
+      margin: 0;
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
+    }
+    .count-row {
+      display: contents;
+    }
+    .count-row dt {
+      color: var(--muted);
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+    .count-row dd {
+      margin: 0;
+      font-family: var(--mono);
+      font-size: 1.05rem;
+      font-weight: 600;
+      text-align: right;
+    }
+    .hint {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.1rem;
+      height: 1.1rem;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.7rem;
+      cursor: help;
+    }
+  </style>
+
+  <script>
+    import { countAll, checkLimit } from '../../lib/char-count';
+
+    const textarea = document.getElementById('text') as HTMLTextAreaElement;
+    const presetButtons = document.querySelectorAll<HTMLButtonElement>('.preset');
+    const limitResult = document.getElementById('limit-result') as HTMLElement;
+    const limitText = document.getElementById('limit-text') as HTMLElement;
+    const limitBar = document.getElementById('limit-bar') as HTMLElement;
+
+    const outUtf16 = document.getElementById('count-utf16') as HTMLElement;
+    const outCodepoints = document.getElementById('count-codepoints') as HTMLElement;
+    const outGraphemes = document.getElementById('count-graphemes') as HTMLElement;
+    const outBytes = document.getElementById('count-bytes') as HTMLElement;
+    const outWords = document.getElementById('count-words') as HTMLElement;
+
+    let activeLimit: { limit: number; label: string } | null = null;
+
+    function fmt(n: number): string {
+      return n.toLocaleString('ja-JP');
+    }
+
+    function render() {
+      const counts = countAll(textarea.value);
+      outUtf16.textContent = fmt(counts.utf16);
+      outCodepoints.textContent = fmt(counts.codePoints);
+      outGraphemes.textContent = fmt(counts.graphemes);
+      outBytes.textContent = `${fmt(counts.utf8Bytes)} バイト`;
+      outWords.textContent = fmt(counts.words);
+
+      if (activeLimit === null) {
+        limitResult.hidden = true;
+        return;
+      }
+
+      // プリセットは見た目の文字数（graphemes）を基準に判定する。
+      // 多くのSNSの体感に近く、絵文字を1文字として扱う直感的な数え方のため。
+      const check = checkLimit(counts.graphemes, activeLimit.limit);
+      limitResult.hidden = false;
+      limitText.className = check.isOver ? 'limit-text over' : 'limit-text';
+      limitText.textContent = check.isOver
+        ? `${activeLimit.label}: ${Math.abs(check.remaining)}文字オーバーしています`
+        : `${activeLimit.label}: あと${check.remaining}文字`;
+
+      const pct = Math.min(100, (check.count / check.limit) * 100);
+      limitBar.style.width = `${pct}%`;
+      limitBar.className = check.isOver ? 'limit-bar-fill over' : 'limit-bar-fill';
+    }
+
+    textarea.addEventListener('input', render);
+
+    for (const btn of presetButtons) {
+      btn.addEventListener('click', () => {
+        const limitAttr = btn.dataset.limit;
+        const isClear = !limitAttr;
+
+        for (const b of presetButtons) b.setAttribute('aria-pressed', 'false');
+
+        if (isClear) {
+          activeLimit = null;
+        } else {
+          activeLimit = { limit: Number(limitAttr), label: btn.dataset.label ?? '' };
+          btn.setAttribute('aria-pressed', 'true');
+        }
+        render();
+      });
+    }
+
+    render();
+  </script>
+</BaseLayout>

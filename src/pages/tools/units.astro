@@ -1,0 +1,295 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const title = '単位変換ツール';
+const description =
+  '長さ・重さ・温度の単位を相互変換します。メートル法とヤード・ポンド法（インチ・フィート・ポンドなど）の換算に。ブラウザ内で動作。';
+---
+
+<BaseLayout title={title} description={description} breadcrumb={[]}>
+  <h1>単位変換ツール</h1>
+  <p class="lead">
+    海外のレシピやDIYの資料、洋書の説明書などで「インチ」や「華氏」が出てきて
+    ピンとこない、というときに使います。長さ・重さ・温度に対応しています。
+  </p>
+
+  <div class="tool">
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab" data-category="length" aria-selected="true">長さ</button>
+      <button type="button" class="tab" data-category="weight" aria-selected="false">重さ</button>
+      <button type="button" class="tab" data-category="temperature" aria-selected="false">温度</button>
+    </div>
+
+    <div class="convert-row">
+      <div class="convert-field">
+        <input id="value-input" type="text" inputmode="decimal" value="1" />
+        <select id="from-unit"></select>
+      </div>
+      <button type="button" id="swap" class="swap-btn" aria-label="単位を入れ替える" title="単位を入れ替える">⇄</button>
+      <div class="convert-field">
+        <output id="result" class="result-value"></output>
+        <select id="to-unit"></select>
+      </div>
+    </div>
+
+    <p id="error" class="error" hidden></p>
+  </div>
+
+  <h2>よく使う換算</h2>
+  <div id="quick-refs" class="quick-refs"></div>
+
+  <h2>このツールについて</h2>
+  <p>
+    日本で普段使うメートル法（メートル・グラム・摂氏）と、アメリカなどで使われる
+    ヤード・ポンド法（インチ・フィート・ポンド・華氏）の間で、頭の中で計算しなくても
+    すぐに変換できるようにしています。値は入力するたびにその場で計算されます。
+  </p>
+
+  <style>
+    .lead { color: var(--muted); margin-top: 0; }
+
+    .tool {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-block: 1.5rem;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0.4rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      font: inherit;
+      font-size: 0.9375rem;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      padding: 0.5rem 0.2rem;
+      margin-right: 1rem;
+      cursor: pointer;
+      color: var(--muted);
+    }
+    .tab[aria-selected="true"] {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      font-weight: 600;
+    }
+
+    .convert-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: end;
+      gap: 0.6rem;
+    }
+
+    .convert-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    #value-input {
+      font-family: var(--mono);
+      font-size: 1.15rem;
+      padding: 0.55rem 0.65rem;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+    }
+    #value-input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: var(--accent);
+    }
+
+    .result-value {
+      font-family: var(--mono);
+      font-size: 1.15rem;
+      font-weight: 600;
+      padding: 0.55rem 0.65rem;
+      background: var(--accent-weak);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--accent);
+      min-height: 1.4em;
+      display: block;
+    }
+
+    select {
+      font: inherit;
+      font-size: 0.875rem;
+      padding: 0.4rem 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .swap-btn {
+      font-size: 1.25rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      width: 2.4rem;
+      height: 2.4rem;
+      cursor: pointer;
+      color: var(--text);
+      margin-bottom: 1.9rem;
+    }
+    .swap-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    .error {
+      color: var(--danger);
+      font-weight: 600;
+      margin-top: 0.8rem;
+    }
+
+    .quick-refs {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+      gap: 0.6rem;
+      margin-bottom: 1.5rem;
+    }
+    .quick-ref {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.6rem 0.8rem;
+      font-size: 0.875rem;
+      font-family: var(--mono);
+    }
+  </style>
+
+  <script>
+    import {
+      convertLength,
+      convertWeight,
+      convertTemperature,
+      roundForDisplay,
+      LENGTH_UNITS,
+      WEIGHT_UNITS,
+      TEMPERATURE_UNITS,
+      type LengthUnit,
+      type WeightUnit,
+      type TemperatureUnit,
+    } from '../../lib/units';
+
+    type Category = 'length' | 'weight' | 'temperature';
+
+    const CATEGORY_UNITS: Record<Category, { key: string; label: string }[]> = {
+      length: LENGTH_UNITS,
+      weight: WEIGHT_UNITS,
+      temperature: TEMPERATURE_UNITS,
+    };
+
+    const CATEGORY_DEFAULTS: Record<Category, [string, string]> = {
+      length: ['m', 'ft'],
+      weight: ['kg', 'lb'],
+      temperature: ['c', 'f'],
+    };
+
+    // 「よく使う換算」の紹介。値は roundForDisplay で丸めて表示する。
+    const QUICK_REFS: Record<Category, { text: string }[]> = {
+      length: [
+        { text: `1 m ≈ ${roundForDisplay(convertLength(1, 'm', 'ft'), 4)} ft` },
+        { text: `1 in = ${roundForDisplay(convertLength(1, 'in', 'cm'), 4)} cm` },
+        { text: `1 mi ≈ ${roundForDisplay(convertLength(1, 'mi', 'km'), 4)} km` },
+      ],
+      weight: [
+        { text: `1 kg ≈ ${roundForDisplay(convertWeight(1, 'kg', 'lb'), 4)} lb` },
+        { text: `1 lb ≈ ${roundForDisplay(convertWeight(1, 'lb', 'g'), 4)} g` },
+        { text: `1 oz ≈ ${roundForDisplay(convertWeight(1, 'oz', 'g'), 4)} g` },
+      ],
+      temperature: [
+        { text: `0°C = ${roundForDisplay(convertTemperature(0, 'c', 'f'), 4)}°F` },
+        { text: `100°C = ${roundForDisplay(convertTemperature(100, 'c', 'f'), 4)}°F` },
+        { text: `-40°C = -40°F（一致する交点）` },
+      ],
+    };
+
+    const tabs = document.querySelectorAll<HTMLButtonElement>('.tab');
+    const valueInput = document.getElementById('value-input') as HTMLInputElement;
+    const fromSelect = document.getElementById('from-unit') as HTMLSelectElement;
+    const toSelect = document.getElementById('to-unit') as HTMLSelectElement;
+    const resultOut = document.getElementById('result') as HTMLOutputElement;
+    const swapBtn = document.getElementById('swap') as HTMLButtonElement;
+    const errorEl = document.getElementById('error') as HTMLElement;
+    const quickRefsEl = document.getElementById('quick-refs') as HTMLElement;
+
+    let category: Category = 'length';
+
+    function populateSelects() {
+      const units = CATEGORY_UNITS[category];
+      const [defaultFrom, defaultTo] = CATEGORY_DEFAULTS[category];
+      fromSelect.innerHTML = units.map((u) => `<option value="${u.key}">${u.label}</option>`).join('');
+      toSelect.innerHTML = units.map((u) => `<option value="${u.key}">${u.label}</option>`).join('');
+      fromSelect.value = defaultFrom;
+      toSelect.value = defaultTo;
+    }
+
+    function renderQuickRefs() {
+      quickRefsEl.innerHTML = QUICK_REFS[category]
+        .map((r) => `<div class="quick-ref">${r.text}</div>`)
+        .join('');
+    }
+
+    function convert() {
+      errorEl.hidden = true;
+      const raw = valueInput.value.trim();
+      if (raw === '' || Number.isNaN(Number(raw))) {
+        resultOut.textContent = '';
+        if (raw !== '') {
+          errorEl.hidden = false;
+          errorEl.textContent = '数値を入力してください';
+        }
+        return;
+      }
+      const value = Number(raw);
+      const from = fromSelect.value;
+      const to = toSelect.value;
+
+      let result: number;
+      if (category === 'length') {
+        result = convertLength(value, from as LengthUnit, to as LengthUnit);
+      } else if (category === 'weight') {
+        result = convertWeight(value, from as WeightUnit, to as WeightUnit);
+      } else {
+        result = convertTemperature(value, from as TemperatureUnit, to as TemperatureUnit);
+      }
+
+      resultOut.textContent = String(roundForDisplay(result, 8));
+    }
+
+    function selectCategory(next: Category) {
+      category = next;
+      for (const tab of tabs) {
+        tab.setAttribute('aria-selected', String(tab.dataset.category === next));
+      }
+      populateSelects();
+      renderQuickRefs();
+      convert();
+    }
+
+    for (const tab of tabs) {
+      tab.addEventListener('click', () => selectCategory(tab.dataset.category as Category));
+    }
+
+    valueInput.addEventListener('input', convert);
+    fromSelect.addEventListener('change', convert);
+    toSelect.addEventListener('change', convert);
+
+    swapBtn.addEventListener('click', () => {
+      const from = fromSelect.value;
+      fromSelect.value = toSelect.value;
+      toSelect.value = from;
+      convert();
+    });
+
+    selectCategory('length');
+  </script>
+</BaseLayout>
