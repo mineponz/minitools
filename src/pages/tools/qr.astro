@@ -1,0 +1,354 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const title = 'QRコード作成';
+const description =
+  'URLや文章からQRコードを作り、PNG画像かSVGで保存できます。誤り訂正レベルと大きさも選べます。入力した内容はブラウザの中だけで処理され、どこにも送信されません。';
+---
+
+<BaseLayout title={title} description={description} breadcrumb={[]}>
+  <h1>QRコード作成</h1>
+  <p class="lead">
+    URLや連絡先、ちょっとしたメモをQRコードにします。打ち込むとその場で表示され、
+    PNG画像かSVGで保存できます。日本語の文章もそのまま入れられます。
+  </p>
+
+  <div class="tool">
+    <label class="field-label" for="qr-text">QRコードにしたい内容</label>
+    <textarea
+      id="qr-text"
+      rows="3"
+      placeholder="https://example.com/ など"
+      spellcheck="false"></textarea>
+
+    <div class="options">
+      <div class="option">
+        <label class="field-label" for="qr-level">誤り訂正レベル</label>
+        <select id="qr-level"></select>
+        <p id="qr-level-note" class="note"></p>
+      </div>
+      <div class="option">
+        <label class="field-label" for="qr-size">大きさ</label>
+        <input id="qr-size" type="range" min="2" max="20" step="1" value="8" />
+        <p id="qr-size-note" class="note"></p>
+      </div>
+    </div>
+
+    <p id="qr-error" class="error" hidden></p>
+
+    <div class="preview">
+      <canvas id="qr-canvas" role="img" aria-label="生成されたQRコード"></canvas>
+      <p id="qr-placeholder" class="placeholder">上の欄に入力するとQRコードが出ます</p>
+    </div>
+
+    <p id="qr-info" class="info"></p>
+
+    <div class="actions">
+      <button type="button" id="download-png" disabled>PNGで保存</button>
+      <button type="button" id="download-svg" disabled>SVGで保存</button>
+    </div>
+  </div>
+
+  <h2>このツールについて</h2>
+  <p>
+    紙のチラシや名刺にURLを載せたいとき、店頭のPOPにメニューのリンクを貼りたいとき、
+    Wi-Fiのパスワードを家族に渡したいときなどに使えます。作ったQRコードは
+    そのまま画像として保存できるので、印刷にもスライドへの貼り付けにも使えます。
+  </p>
+  <p>
+    入力した内容はブラウザの中だけで処理しています。QRコードの画像を作るために
+    サーバーへ文字列を送ることはないので、社内向けのURLや個人的なメモを入れても外に出ません。
+  </p>
+
+  <h2>PNGとSVGの使い分け</h2>
+  <p>
+    画面で使うだけなら <strong>PNG</strong> が手軽です。写真やスクリーンショットと同じ
+    ふつうの画像なので、そのままメールにもスライドにも貼れます。
+    <strong>SVG</strong> は拡大しても輪郭がぼやけない形式で、ポスターのように
+    大きく印刷するときや、あとからサイズを変えるかもしれないときに向いています。
+  </p>
+
+  <h2>誤り訂正レベルの選び方</h2>
+  <p>
+    QRコードは一部が汚れたり隠れたりしても読み取れるように、あらかじめ余分な情報を持っています。
+    その余裕の大きさが誤り訂正レベルです。レベルを上げるほど汚れに強くなりますが、
+    同じ内容でもQRコードの目が細かくなります。画面に表示するだけなら
+    <strong>M</strong> で十分で、屋外に貼る・小さく印刷するなど傷みそうな場面では
+    <strong>Q</strong> や <strong>H</strong> を選ぶと安心です。
+  </p>
+  <p class="note-block">
+    QRコードの周囲にある白い余白（静粛領域）は、読み取り機がコードの範囲を見つけるために必要です。
+    このツールでは規格どおり4マスぶんを必ず付けています。保存した画像を切り詰めると
+    読み取れなくなることがあるので、余白は残したまま使ってください。
+  </p>
+
+  <style>
+    .lead { color: var(--muted); margin-top: 0; }
+
+    .tool {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-block: 1.5rem;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 0.3rem;
+    }
+
+    textarea {
+      width: 100%;
+      font-family: var(--mono);
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      padding: 0.6rem 0.7rem;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      resize: vertical;
+    }
+    textarea:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+      border-color: var(--accent);
+    }
+
+    .options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    select {
+      font: inherit;
+      font-size: 0.875rem;
+      padding: 0.4rem 0.5rem;
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .note {
+      margin: 0.35rem 0 0;
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
+
+    .preview {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 12rem;
+      margin-top: 1.25rem;
+      padding: 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+
+    /*
+      QRは1マス単位の白黒画像なので、拡大時に補間されるとマスの境界がにじみ、
+      読み取り精度が落ちる。pixelated で補間を切る。
+    */
+    #qr-canvas {
+      max-width: 100%;
+      height: auto;
+      image-rendering: pixelated;
+      background: #ffffff;
+    }
+    #qr-canvas[hidden] { display: none; }
+
+    .placeholder {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+
+    .info {
+      margin: 0.75rem 0 0;
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      color: var(--muted);
+      text-align: center;
+      min-height: 1.4em;
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.6rem;
+      margin-top: 1rem;
+    }
+
+    .actions button {
+      font: inherit;
+      font-size: 0.875rem;
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .actions button:hover:not(:disabled) {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .actions button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .error {
+      color: var(--danger);
+      font-weight: 600;
+      margin: 0.8rem 0 0;
+      font-size: 0.875rem;
+    }
+
+    .note-block {
+      font-size: 0.875rem;
+      color: var(--muted);
+      border-left: 3px solid var(--border);
+      padding-left: 0.9rem;
+    }
+  </style>
+
+  <script>
+    import {
+      generateQr,
+      qrToPixels,
+      qrToSvg,
+      ERROR_CORRECTION_LEVELS,
+      QR_MODE_LABELS,
+      QrGenerateError,
+      type ErrorCorrectionLevel,
+      type QrMatrix,
+    } from '../../lib/qr';
+
+    const textArea = document.getElementById('qr-text') as HTMLTextAreaElement;
+    const levelSelect = document.getElementById('qr-level') as HTMLSelectElement;
+    const levelNote = document.getElementById('qr-level-note') as HTMLElement;
+    const sizeInput = document.getElementById('qr-size') as HTMLInputElement;
+    const sizeNote = document.getElementById('qr-size-note') as HTMLElement;
+    const canvas = document.getElementById('qr-canvas') as HTMLCanvasElement;
+    const placeholder = document.getElementById('qr-placeholder') as HTMLElement;
+    const infoEl = document.getElementById('qr-info') as HTMLElement;
+    const errorEl = document.getElementById('qr-error') as HTMLElement;
+    const pngButton = document.getElementById('download-png') as HTMLButtonElement;
+    const svgButton = document.getElementById('download-svg') as HTMLButtonElement;
+
+    // 保存ボタンから使い回すため、直近の生成結果を持っておく
+    let currentMatrix: QrMatrix | null = null;
+
+    levelSelect.innerHTML = ERROR_CORRECTION_LEVELS.map(
+      (l) => `<option value="${l.key}">${l.label}</option>`,
+    ).join('');
+    levelSelect.value = 'M';
+
+    function moduleSize(): number {
+      return Number(sizeInput.value);
+    }
+
+    function showEmptyState(message: string, isError: boolean) {
+      currentMatrix = null;
+      canvas.hidden = true;
+      placeholder.hidden = false;
+      placeholder.textContent = isError ? '' : message;
+      errorEl.hidden = !isError;
+      if (isError) errorEl.textContent = message;
+      infoEl.textContent = '';
+      pngButton.disabled = true;
+      svgButton.disabled = true;
+      sizeNote.textContent = `1マスあたり ${moduleSize()}px`;
+    }
+
+    function render() {
+      const note = ERROR_CORRECTION_LEVELS.find((l) => l.key === levelSelect.value);
+      levelNote.textContent = note ? note.description : '';
+
+      const text = textArea.value;
+      if (text === '') {
+        showEmptyState('上の欄に入力するとQRコードが出ます', false);
+        return;
+      }
+
+      let matrix: QrMatrix;
+      try {
+        matrix = generateQr(text, levelSelect.value as ErrorCorrectionLevel);
+      } catch (e) {
+        showEmptyState(
+          e instanceof QrGenerateError ? e.message : 'QRコードを生成できませんでした',
+          true,
+        );
+        return;
+      }
+
+      const pixels = qrToPixels(matrix, { moduleSize: moduleSize() });
+      canvas.width = pixels.width;
+      canvas.height = pixels.height;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        showEmptyState('このブラウザではQRコードを表示できません', true);
+        return;
+      }
+      context.putImageData(new ImageData(pixels.data, pixels.width, pixels.height), 0, 0);
+
+      currentMatrix = matrix;
+      canvas.hidden = false;
+      placeholder.hidden = true;
+      errorEl.hidden = true;
+      pngButton.disabled = false;
+      svgButton.disabled = false;
+
+      infoEl.textContent =
+        `型番${matrix.typeNumber}（${matrix.size}×${matrix.size}マス） / ` +
+        `${QR_MODE_LABELS[matrix.mode]} / 誤り訂正 ${matrix.errorCorrectionLevel}`;
+      sizeNote.textContent = `1マスあたり ${moduleSize()}px（画像 ${pixels.width}×${pixels.height}px）`;
+    }
+
+    /** Blobを一時URLにしてダウンロードさせる。URLはすぐ解放する */
+    function download(blob: Blob, filename: string) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    pngButton.addEventListener('click', () => {
+      if (!currentMatrix) return;
+      canvas.toBlob((blob) => {
+        if (blob) download(blob, 'qrcode.png');
+      }, 'image/png');
+    });
+
+    svgButton.addEventListener('click', () => {
+      if (!currentMatrix) return;
+      const svg = qrToSvg(currentMatrix, { moduleSize: moduleSize() });
+      download(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), 'qrcode.svg');
+    });
+
+    textArea.addEventListener('input', render);
+    levelSelect.addEventListener('change', render);
+    sizeInput.addEventListener('input', render);
+
+    // 初期表示。空欄のままだと何も起きないページに見えるので、このサイトのURLを入れておく
+    textArea.value = 'https://minitools.mineponz.workers.dev/';
+    render();
+  </script>
+</BaseLayout>

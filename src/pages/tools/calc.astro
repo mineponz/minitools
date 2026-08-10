@@ -1,0 +1,440 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const title = '関数電卓';
+const description =
+  '三角関数・対数・平方根・べき乗・階乗まで計算できる関数電卓です。式をそのまま書いて計算でき、度とラジアンも切り替えられます。ブラウザ内で動作し、入力内容は送信されません。';
+---
+
+<BaseLayout title={title} description={description} breadcrumb={[]}>
+  <h1>関数電卓</h1>
+  <p class="lead">
+    <code>(1+2)×3</code> のように式をまとめて書いて計算できます。
+    三角関数・対数・平方根・べき乗・階乗に対応し、度とラジアンを切り替えられます。
+    入力している途中でも答えが下に出ます。
+  </p>
+
+  <div class="tool">
+    <div class="display">
+      <input
+        id="expression"
+        type="text"
+        inputmode="text"
+        spellcheck="false"
+        autocomplete="off"
+        autocapitalize="off"
+        placeholder="式を入力（例: (1+2)×3 ）"
+        aria-label="計算する式"
+      />
+      <output id="result" class="result"></output>
+      <p id="message" class="message"></p>
+    </div>
+
+    <div id="pad" class="pad"></div>
+
+    <p class="ans-line">
+      <span id="ans-display">Ans = 0</span>
+      <span id="angle-display">度数法（DEG）</span>
+    </p>
+  </div>
+
+  <h2>計算履歴</h2>
+  <p id="history-empty" class="note">「=」を押すとここに残ります。答えをクリックすると式に差し込めます。</p>
+  <ol id="history" class="history"></ol>
+
+  <h2>このツールについて</h2>
+  <p>
+    スマホやパソコンに最初から入っている電卓は、四則演算はできても
+    三角関数や対数までは扱えないことがあります。このページは、
+    工作の角度を出したい・図面の寸法を確かめたい・学校の課題を解きたい、
+    といった場面で式をそのまま打ち込めるようにしたものです。
+  </p>
+  <p>
+    計算はすべてブラウザの中で行っています。式をサーバーへ送っていないので、
+    仕事の数字を入れても外に出ることはありません。
+  </p>
+
+  <h2>書き方のルール</h2>
+  <ul class="rules">
+    <li><strong>優先順位</strong>: 掛け算・割り算が足し算・引き算より先です。括弧で変えられます。</li>
+    <li><strong>べき乗</strong>: <code>2^10</code> と書きます。右から計算するので <code>2^3^2</code> は <code>2^9</code> = 512 です。</li>
+    <li><strong>掛け算記号の省略</strong>: <code>2π</code> や <code>3(4+5)</code> のように省けます。
+      ただし <code>2 3</code> のような数字どうしは打ち間違いとみなしてエラーにします。</li>
+    <li><strong>関数の括弧</strong>: 省略すると直後のひとかたまりだけが対象です。
+      <code>√9+1</code> は <code>4</code>（<code>√(9+1)</code> ではありません）。迷うときは括弧を付けてください。</li>
+    <li><strong>パーセント</strong>: <code>200+10%</code> は「200の10%を足す」で <code>220</code> になります。
+      掛け算・割り算では <code>10%</code> はそのまま <code>0.1</code> です（<code>200×10%</code> = 20）。</li>
+    <li><strong>Ans</strong>: 直前に「=」で出した答えが入ります。続けて計算するときに使えます。</li>
+    <li><strong>その他</strong>: 全角で打っても計算できます。<code>1,234</code> のような3桁区切りも読み取ります。</li>
+  </ul>
+
+  <h2>できないこと</h2>
+  <p class="note-block">
+    答えは有効数字12桁までに丸めて表示します。<code>√(-1)</code> のような実数の範囲に無い計算、
+    0で割る計算、<code>log(0)</code> のような定義域の外はエラーとして理由を出します。
+    <code>tan(90°)</code> も定義されないためエラーです。ただしラジアンでの
+    <code>tan(π/2)</code> だけは「ちょうどπ/2」を判定できないため、非常に大きな数を返します。
+  </p>
+
+  <style>
+    .lead { color: var(--muted); margin-top: 0; }
+
+    .tool {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-block: 1.5rem;
+    }
+
+    .display {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem 0.85rem;
+    }
+
+    #expression {
+      width: 100%;
+      font-family: var(--mono);
+      font-size: 1.15rem;
+      padding: 0.3rem 0;
+      color: var(--text);
+      background: transparent;
+      border: none;
+      text-align: right;
+    }
+    #expression:focus-visible { outline: none; }
+    .display:focus-within {
+      border-color: var(--accent);
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    .result {
+      display: block;
+      font-family: var(--mono);
+      font-size: 1.6rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-align: right;
+      min-height: 1.5em;
+      overflow-wrap: anywhere;
+    }
+
+    .message {
+      margin: 0.2rem 0 0;
+      font-size: 0.8125rem;
+      color: var(--muted);
+      text-align: right;
+      min-height: 1.4em;
+    }
+    .message.is-error { color: var(--danger); font-weight: 600; }
+
+    .pad {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.4rem;
+      margin-top: 1rem;
+    }
+
+    .pad button {
+      font: inherit;
+      font-size: 0.9375rem;
+      padding: 0.7rem 0.2rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      min-height: 2.9rem;
+    }
+    .pad button:hover { border-color: var(--accent); color: var(--accent); }
+    .pad button:active { background: var(--accent-weak); }
+
+    /* 数字は押す頻度が高いので少し目立たせる */
+    .pad button.digit { font-family: var(--mono); font-size: 1.05rem; font-weight: 600; }
+    .pad button.func { font-size: 0.8125rem; color: var(--muted); }
+    .pad button.func:hover { color: var(--accent); }
+    .pad button.equals {
+      grid-column: 1 / -1;
+      background: var(--accent-weak);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .pad button.mode { font-size: 0.8125rem; font-weight: 600; }
+
+    .ans-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      margin: 0.9rem 0 0;
+      font-family: var(--mono);
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
+
+    .note { color: var(--muted); font-size: 0.875rem; }
+
+    .history {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .history li {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      margin-bottom: 0.4rem;
+      padding: 0.55rem 0.8rem;
+      font-family: var(--mono);
+      font-size: 0.875rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.8rem;
+    }
+    .history .expr { color: var(--muted); overflow-wrap: anywhere; }
+    .history button {
+      font: inherit;
+      font-weight: 600;
+      background: transparent;
+      border: none;
+      padding: 0;
+      color: var(--accent);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .history button:hover { text-decoration: underline; }
+
+    .rules { font-size: 0.9375rem; padding-left: 1.2rem; }
+    .rules li { margin-bottom: 0.4rem; }
+
+    .note-block {
+      font-size: 0.875rem;
+      color: var(--muted);
+      border-left: 3px solid var(--border);
+      padding-left: 0.9rem;
+    }
+  </style>
+
+  <script>
+    import { evaluate, formatResult, CalcError, type AngleMode } from '../../lib/calc';
+
+    type Key = {
+      label: string;
+      /** 押したときに式へ差し込む文字列 */
+      insert?: string;
+      action?: 'clear' | 'back' | 'equals' | 'angle';
+      className?: string;
+      ariaLabel?: string;
+    };
+
+    /*
+      5列のボタンパッド。上から順に、操作 → 三角関数 → 逆三角関数 → 対数・定数 → 数字。
+      差し込む文字は「×」「÷」「−」のような見慣れた記号にしている。
+      パーサ側でASCIIの `*` `/` `-` と同じものとして扱うので、キーボード入力と混ぜても動く。
+    */
+    const KEYS: Key[] = [
+      { label: 'DEG', action: 'angle', className: 'mode', ariaLabel: '角度の単位を切り替える' },
+      { label: 'AC', action: 'clear', className: 'func', ariaLabel: 'すべて消す' },
+      { label: '←', action: 'back', className: 'func', ariaLabel: '1文字消す' },
+      { label: '(', insert: '(' },
+      { label: ')', insert: ')' },
+
+      { label: 'sin', insert: 'sin(', className: 'func' },
+      { label: 'cos', insert: 'cos(', className: 'func' },
+      { label: 'tan', insert: 'tan(', className: 'func' },
+      { label: 'xʸ', insert: '^', ariaLabel: 'べき乗' },
+      { label: '÷', insert: '÷' },
+
+      { label: 'sin⁻¹', insert: 'asin(', className: 'func' },
+      { label: 'cos⁻¹', insert: 'acos(', className: 'func' },
+      { label: 'tan⁻¹', insert: 'atan(', className: 'func' },
+      { label: '√', insert: '√', ariaLabel: '平方根' },
+      { label: '×', insert: '×' },
+
+      { label: 'log', insert: 'log(', className: 'func' },
+      { label: 'ln', insert: 'ln(', className: 'func' },
+      { label: 'π', insert: 'π' },
+      { label: 'e', insert: 'e' },
+      { label: '−', insert: '−' },
+
+      { label: '7', insert: '7', className: 'digit' },
+      { label: '8', insert: '8', className: 'digit' },
+      { label: '9', insert: '9', className: 'digit' },
+      { label: 'n!', insert: '!', ariaLabel: '階乗' },
+      { label: '+', insert: '+' },
+
+      { label: '4', insert: '4', className: 'digit' },
+      { label: '5', insert: '5', className: 'digit' },
+      { label: '6', insert: '6', className: 'digit' },
+      { label: '%', insert: '%' },
+      { label: 'Ans', insert: 'Ans', className: 'func' },
+
+      { label: '1', insert: '1', className: 'digit' },
+      { label: '2', insert: '2', className: 'digit' },
+      { label: '3', insert: '3', className: 'digit' },
+      { label: '0', insert: '0', className: 'digit' },
+      { label: '.', insert: '.', className: 'digit' },
+
+      { label: '=', action: 'equals', className: 'equals' },
+    ];
+
+    const input = document.getElementById('expression') as HTMLInputElement;
+    const resultEl = document.getElementById('result') as HTMLOutputElement;
+    const messageEl = document.getElementById('message') as HTMLElement;
+    const padEl = document.getElementById('pad') as HTMLElement;
+    const ansDisplay = document.getElementById('ans-display') as HTMLElement;
+    const angleDisplay = document.getElementById('angle-display') as HTMLElement;
+    const historyEl = document.getElementById('history') as HTMLOListElement;
+    const historyEmpty = document.getElementById('history-empty') as HTMLElement;
+
+    let angleMode: AngleMode = 'deg';
+    let ans = 0;
+    let history: { expression: string; result: string }[] = [];
+
+    // --- 入力操作 ---
+
+    function insertText(text: string) {
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? start;
+      input.value = input.value.slice(0, start) + text + input.value.slice(end);
+      const caret = start + text.length;
+      input.focus();
+      input.setSelectionRange(caret, caret);
+      update();
+    }
+
+    function backspace() {
+      const start = input.selectionStart ?? input.value.length;
+      const end = input.selectionEnd ?? start;
+      if (start === end) {
+        if (start === 0) return;
+        input.value = input.value.slice(0, start - 1) + input.value.slice(end);
+        input.focus();
+        input.setSelectionRange(start - 1, start - 1);
+      } else {
+        input.value = input.value.slice(0, start) + input.value.slice(end);
+        input.focus();
+        input.setSelectionRange(start, start);
+      }
+      update();
+    }
+
+    function clearAll() {
+      input.value = '';
+      input.focus();
+      update();
+    }
+
+    // --- 計算 ---
+
+    /**
+     * 式を計算して表示を更新する。
+     * 入力の途中は必ずどこかで構文エラーになるため、= を押すまでエラーは
+     * 赤字にせず控えめに出す（`showAsError` で切り替える）。
+     */
+    function update(showAsError = false): number | null {
+      const expression = input.value;
+      messageEl.classList.toggle('is-error', showAsError);
+
+      if (expression.trim() === '') {
+        resultEl.textContent = '';
+        messageEl.textContent = '';
+        return null;
+      }
+
+      try {
+        const value = evaluate(expression, { angleMode, ans });
+        resultEl.textContent = formatResult(value);
+        messageEl.textContent = '';
+        return value;
+      } catch (e) {
+        resultEl.textContent = '';
+        messageEl.textContent = e instanceof CalcError ? e.message : '計算できませんでした';
+        return null;
+      }
+    }
+
+    function commit() {
+      const expression = input.value.trim();
+      if (expression === '') return;
+      const value = update(true);
+      if (value === null) return;
+
+      ans = value;
+      ansDisplay.textContent = `Ans = ${formatResult(ans)}`;
+      history = [{ expression, result: formatResult(value) }, ...history].slice(0, 10);
+      renderHistory();
+    }
+
+    function renderHistory() {
+      historyEmpty.hidden = history.length > 0;
+      historyEl.replaceChildren();
+      for (const item of history) {
+        const li = document.createElement('li');
+        const expr = document.createElement('span');
+        expr.className = 'expr';
+        expr.textContent = item.expression;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = `= ${item.result}`;
+        button.title = 'この答えを式に差し込む';
+        button.addEventListener('click', () => insertText(item.result));
+        li.append(expr, button);
+        historyEl.append(li);
+      }
+    }
+
+    function toggleAngleMode(button: HTMLButtonElement) {
+      angleMode = angleMode === 'deg' ? 'rad' : 'deg';
+      button.textContent = angleMode === 'deg' ? 'DEG' : 'RAD';
+      angleDisplay.textContent = angleMode === 'deg' ? '度数法（DEG）' : '弧度法（RAD）';
+      update();
+    }
+
+    // --- 組み立て ---
+
+    for (const key of KEYS) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = key.label;
+      if (key.className) button.className = key.className;
+      if (key.ariaLabel) button.setAttribute('aria-label', key.ariaLabel);
+      button.addEventListener('click', () => {
+        if (key.insert !== undefined) {
+          insertText(key.insert);
+          return;
+        }
+        switch (key.action) {
+          case 'clear':
+            clearAll();
+            break;
+          case 'back':
+            backspace();
+            break;
+          case 'equals':
+            commit();
+            break;
+          case 'angle':
+            toggleAngleMode(button);
+            break;
+        }
+      });
+      padEl.append(button);
+    }
+
+    input.addEventListener('input', () => update());
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        commit();
+      }
+    });
+
+    renderHistory();
+    update();
+  </script>
+</BaseLayout>

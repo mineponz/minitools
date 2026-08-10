@@ -52,6 +52,13 @@ npm run build    # dist/ に静的出力
 - JSON-LD は `<script type="application/ld+json" set:html={...} />` と書く。
   `<set:html value={...} />` は単体タグとして使えず、不正な要素がそのまま出力される。
 - `SITE_URL`（`src/consts.ts`）は canonical と sitemap.xml に直結する。本番URLと一致させる。
+- `qrcode-generator` の既定の `stringToBytes` は `charCode & 0xff` で切るだけなので、
+  そのまま使うと日本語が化ける（「あ」が `B` になる）。`src/lib/qr.ts` の冒頭で
+  `TextEncoder` によるUTF-8版に差し替えている。ライブラリを更新したらこの差し替えが
+  効いているか（`qr.test.ts` の日本語デコードのテスト）を必ず確認する。
+- ライブラリを足すときは依存の数を見る。QRは符号化の誤りが目視で分からないため例外的に
+  外部ライブラリに任せたが、`qrcode-generator`（依存0個）を選び、`qrcode`（pngjs等に依存）は避けた。
+  テストでは別実装のデコーダ `jsqr`（devDependency）に読ませて、生成物が実際に読めることを確認している。
 
 ## Development
 
