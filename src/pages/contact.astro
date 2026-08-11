@@ -1,0 +1,77 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { CONTACT_EMAIL, CONTACT_EMAIL_PLACEHOLDER } from '../consts';
+
+/**
+ * お問い合わせページ。
+ *
+ * 連絡先は src/consts.ts の CONTACT_EMAIL に置いてある。
+ * !!! 現在はプレースホルダ。本番公開前に必ず実在のアドレスへ差し替えること !!!
+ * 差し替えるまでは mailto リンクを出さず「準備中」と表示する（存在しない宛先を案内しないため）。
+ */
+const title = 'お問い合わせ';
+const description =
+  'minitools への不具合報告・ご要望・その他のお問い合わせ先です。';
+
+const isPlaceholder = CONTACT_EMAIL === CONTACT_EMAIL_PLACEHOLDER;
+---
+
+<BaseLayout title={title} description={description} breadcrumb={[]}>
+  <h1>お問い合わせ</h1>
+  <p class="lead">
+    ツールの不具合、計算結果の誤り、追加してほしい機能などがあればご連絡ください。
+    個人で運営しているため、すべてのご連絡に返信できるとは限りません。ご了承ください。
+  </p>
+
+  <h2>連絡先</h2>
+  {isPlaceholder ? (
+    <p class="notice">
+      現在、お問い合わせ用の連絡先を準備中です。準備ができ次第このページに掲載します。
+    </p>
+  ) : (
+    <p class="contact-address">
+      <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+    </p>
+  )}
+
+  <h2>ご連絡いただくときのお願い</h2>
+  <p>
+    不具合のご報告では、次の情報があると原因を特定しやすくなります。
+  </p>
+  <ul>
+    <li>どのツールのページか（URL）</li>
+    <li>入力した内容と、期待した結果・実際に表示された結果</li>
+    <li>お使いのブラウザ（Chrome、Safari など）とスマートフォン／パソコンの別</li>
+  </ul>
+  <p>
+    なお、当サイトのツールはすべてブラウザ内で動作しており、入力内容はサーバーへ送信されません。
+    そのため、運営者側にはエラーの記録が一切残りません。状況をお知らせいただかないと調査ができない
+    仕組みになっています。詳しくは<a href="/privacy/">プライバシーポリシー</a>をご覧ください。
+  </p>
+  <p>
+    パスワードや個人情報など、他人に知られては困る内容はお問い合わせに含めないでください。
+  </p>
+
+  <style>
+    .lead { color: var(--muted); margin-top: 0; }
+
+    .notice {
+      background: var(--surface);
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      padding: 0.9rem 1rem;
+      color: var(--muted);
+    }
+
+    .contact-address {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.9rem 1rem;
+      font-family: var(--mono);
+    }
+
+    ul { padding-left: 1.25rem; }
+    li { margin-bottom: 0.35rem; }
+  </style>
+</BaseLayout>

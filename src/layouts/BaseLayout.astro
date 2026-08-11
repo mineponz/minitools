@@ -11,7 +11,9 @@ interface Props {
 
 const { title, description = SITE_DESCRIPTION, breadcrumb = [] } = Astro.props;
 
-const fullTitle = title ? `${title} | ${SITE_TITLE}` : `${SITE_TITLE} — エンジニア向けミニツール集`;
+const fullTitle = title
+  ? `${title} | ${SITE_TITLE}`
+  : `${SITE_TITLE} — ブラウザだけで使える無料ミニツール集`;
 const canonical = new URL(Astro.url.pathname, SITE_URL).href;
 
 // パンくずの構造化データ。トップ → 中間 → 現在ページ
@@ -85,9 +87,11 @@ const breadcrumbJsonLd = {
       <p>
         すべての処理はブラウザ内で完結します。入力内容がサーバーへ送信されることはありません。
       </p>
-      <p class="meta">
+      <nav class="meta" aria-label="サイト情報">
         <a href="/">ツール一覧</a>
-      </p>
+        <a href="/privacy/">プライバシーポリシー</a>
+        <a href="/contact/">お問い合わせ</a>
+      </nav>
     </footer>
 
     <style is:global>
@@ -221,7 +225,11 @@ const breadcrumbJsonLd = {
         font-size: 0.8125rem;
       }
       .site-footer p { margin: 0 0 0.5rem; }
-      .site-footer .meta { margin: 0; }
+      .site-footer .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem 1.25rem;
+      }
     </style>
   </body>
 </html>
